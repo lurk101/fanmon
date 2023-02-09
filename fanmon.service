@@ -5,7 +5,7 @@ After=multi-user.target
 
 [Service]
 ExecStart=/usr/local/bin/fanmon -v 1 -p 15
-Type=notify
+Type=simple
 KillMode=process
 
 [Install]

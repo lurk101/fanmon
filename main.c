@@ -133,7 +133,7 @@ int main(int ac, char* av[]) {
     }
 
     // Inform systemd we've started
-    sd_notify(0, "READY=1");
+    // sd_notify(0, "READY=1");
 
     // Poll forever
     for (; running;) {
@@ -153,9 +153,9 @@ error:
     fanClose();
     tempClose();
     fprintf(stderr, SD_ALERT "Stopped with error\n");
-    sd_notifyf(0,
-               "STATUS=Failed: %s\n"
-               "ERRNO=%d",
-               strerror(errno), errno);
+    // sd_notifyf(0,
+    //            "STATUS=Failed: %s\n"
+    //            "ERRNO=%d",
+    //            strerror(errno), errno);
     return -1;
 }
