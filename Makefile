@@ -21,7 +21,7 @@ all: $(BIN)
 $(BIN): $(OBJ)
 	@echo "$^ -> $@"
 	$(ECHO)$(CC) -o $@ $^ $(LDFLAGS)
-	$(ECHO)$(STRIP) $@
+	#$(ECHO)$(STRIP) $@
 
 %.o: %.c
 	@echo "$< -> $@"

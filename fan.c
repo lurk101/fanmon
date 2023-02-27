@@ -7,7 +7,7 @@
 
 #include "fan.h"
 
-#define FAN_FN "/sys/class/pwm/pwmchip1/"
+#define FAN_FN "/sys/class/pwm/pwmchip8/"
 
 #define PWM_PERIOD 42000
 
@@ -16,6 +16,7 @@ static int fh = -1;
 
 // Initialize the fan controller
 static int fanWrite(const char* fn, const char* data) {
+    usleep(100000);
     fh = open(fn, O_WRONLY);
     if (fh < 0) {
         fprintf(stderr, SD_ALERT "Failed to open %s\n", fn);
