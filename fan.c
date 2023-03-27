@@ -7,7 +7,7 @@
 
 #include "fan.h"
 
-#define FAN_FN "/sys/class/pwm/pwmchip14/"
+#define FAN_FN "/sys/class/pwm/pwmchip0/"
 
 #define PWM_PERIOD 42000
 
