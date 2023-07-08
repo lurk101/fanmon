@@ -16,7 +16,6 @@ static int fh = -1;
 
 // Initialize the fan controller
 static int fanWrite(const char* fn, const char* data) {
-    usleep(100000);
     fh = open(fn, O_WRONLY);
     if (fh < 0) {
         fprintf(stderr, SD_ALERT "Failed to open %s\n", fn);

@@ -134,6 +134,7 @@ int main(int ac, char* av[]) {
 
     // Inform systemd we've started
     // sd_notify(0, "READY=1");
+    fprintf(stderr, SD_INFO "Fan control started\n");
 
     // Poll forever
     for (; running;) {
