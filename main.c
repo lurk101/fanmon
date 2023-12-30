@@ -36,27 +36,23 @@ static int process_interval(void) {
         fprintf(stderr, SD_ALERT "%sError retrieving temperature\n");
         return -1;
     }
-    // Calculate new fan speed in the 0-127 range
+    // Set the fan speed
     int32_t p;
     for (int i = 0; i < sizeof(curve) / sizeof(curve[0]); i++)
         if (temp < curve[i].temp) {
-            p = curve[i].level;
+            fanPower(p = curve[i].level);
             break;
         }
-    // Set the fan speed
-    fanPower(p);
     // Conditionally log the full status
     static uint32_t lastP = 0;
     // for verbosity >= 1, log fan on/off transitions
-    if (log_level > 0) {
-        if ((lastP && !p) || (!lastP && p))
-            fprintf(stderr, SD_INFO "Fan o%s\n", p ? "n" : "ff");
+    if (log_level > 0 && lastP != p) {
+        fprintf(stderr, SD_INFO "Fan at %d\%\n", p * 100 / 256);
         lastP = p;
     }
     // for verbosity > 1, log die temp and fan rpm at every interval
     if (log_level > 1)
-        fprintf(stderr, SD_INFO "FAN %u% TEMP %u\n", (uint32_t)(p * 100 / 256),
-                temp);
+        fprintf(stderr, SD_INFO "FAN %u% TEMP %u\n", p * 100 / 256, temp);
     return 0;
 }
 
