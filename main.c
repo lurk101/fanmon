@@ -9,11 +9,13 @@
 #include "fan.h"
 #include "temp.h"
 
-static float high_temp_threshold = 75.0; // Target max. die temp
-static float low_temp_threshold = 60.0;  // Fan start temp.
-static volatile uint8_t running = 1u;    // Abort (CTL-C) flag
+static volatile uint8_t running = 1;     // Abort (CTL-C) flag
 static int log_level = 0;                // Log verbosity
-static int min_fan = 0;
+
+static struct {
+    uint32_t level, temp;
+} curve[] = {{72, 45},  {94, 50},  {117, 55}, {139, 60},  {162, 65},
+             {184, 70}, {207, 75}, {229, 80}, {255, 1000}};
 
 // Catch terminal events
 static void ctlc_handler(int s) { running = 0; }
@@ -21,19 +23,9 @@ static void ctlc_handler(int s) { running = 0; }
 // display help to stdout
 static void help(char* av) {
     printf("\nUsage:\n\n"
-           "%s [-v loglevel] [-l lowTemp] [-h highTemp] \n\n"
-           "  -v Set log verbosity. 0 - quiet (default), 1-chatty, 2-debug\n"
-           "  -l Low temperature threshold in Celcius (default - %d)\n"
-           "  -m High temperature threshold in Celcius (default - %d)\n"
-           "  -p minimum fan speed as percentage (default - %d)\n\n",
-           av, (int)low_temp_threshold, (int)high_temp_threshold, min_fan);
-}
-
-// Use exponential smoothing
-static uint8_t Average(float p) {
-    static float sum = 0;
-    sum = (sum + sum + p) / 3;
-    return sum;
+           "%s [-v loglevel]\n\n"
+           "  -v Set log verbosity. 0 - quiet (default), 1-chatty, 2-debug\n",
+           av);
 }
 
 // Run once per sampling interval process
@@ -45,29 +37,26 @@ static int process_interval(void) {
         return -1;
     }
     // Calculate new fan speed in the 0-127 range
-    float p;
-    if (temp <= low_temp_threshold)
-        p = min_fan;
-    else if (temp >= high_temp_threshold)
-        p = 127;
-    else
-        p = min_fan + ((temp - low_temp_threshold) * (127.0 - min_fan)) /
-                          (high_temp_threshold - low_temp_threshold);
-    // Apply smoothing
-    uint32_t ap = Average(p);
+    int32_t p;
+    for (int i = 0; i < sizeof(curve) / sizeof(curve[0]); i++)
+        if (temp < curve[i].temp) {
+            p = curve[i].level;
+            break;
+        }
     // Set the fan speed
-    fanPower(ap);
+    fanPower(p);
     // Conditionally log the full status
     static uint32_t lastP = 0;
     // for verbosity >= 1, log fan on/off transitions
     if (log_level > 0) {
-        if ((lastP && !ap) || (!lastP && ap))
-            fprintf(stderr, SD_INFO "Fan o%s\n", ap ? "n" : "ff");
-        lastP = ap;
+        if ((lastP && !p) || (!lastP && p))
+            fprintf(stderr, SD_INFO "Fan o%s\n", p ? "n" : "ff");
+        lastP = p;
     }
     // for verbosity > 1, log die temp and fan rpm at every interval
     if (log_level > 1)
-        fprintf(stderr, SD_INFO "FAN %u% TEMP %u\n", (ap * 100) / 128, temp);
+        fprintf(stderr, SD_INFO "FAN %u% TEMP %u\n", (uint32_t)(p * 100 / 256),
+                temp);
     return 0;
 }
 
@@ -80,15 +69,6 @@ int main(int ac, char* av[]) {
         switch (opt) {
         case 'v':
             log_level = atoi(optarg);
-            break;
-        case 'l':
-            low_temp_threshold = atoi(optarg);
-            break;
-        case 'm':
-            high_temp_threshold = atoi(optarg);
-            break;
-        case 'p':
-            min_fan = (atoi(optarg) * 127) / 100;
             break;
         case 'h':
             help(av[0]);
@@ -132,10 +112,6 @@ int main(int ac, char* av[]) {
         goto error;
     }
 
-    // Inform systemd we've started
-    // sd_notify(0, "READY=1");
-    fprintf(stderr, SD_INFO "Fan control started\n");
-
     // Poll forever
     for (; running;) {
         if (process_interval())
@@ -154,9 +130,5 @@ error:
     fanClose();
     tempClose();
     fprintf(stderr, SD_ALERT "Stopped with error\n");
-    // sd_notifyf(0,
-    //            "STATUS=Failed: %s\n"
-    //            "ERRNO=%d",
-    //            strerror(errno), errno);
     return -1;
 }

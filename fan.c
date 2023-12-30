@@ -54,9 +54,7 @@ void fanClose(void) {
 
 // Set the fan power level
 void fanPower(uint32_t s) {
-    if (s > 127)
-        s = 127;
     char buf[16];
-    sprintf(buf, "%d", (s * PWM_PERIOD) / 128);
+    sprintf(buf, "%d", (s * PWM_PERIOD) / 256);
     fanWrite(FAN_FN "pwm0/duty_cycle", buf);
 }
