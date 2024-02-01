@@ -14,8 +14,10 @@ static int log_level = 0;                // Log verbosity
 
 static struct {
     uint32_t level, temp;
-} curve[] = {{72, 45},  {94, 50},  {117, 55}, {139, 60},  {162, 65},
-             {184, 70}, {207, 75}, {229, 80}, {255, 1000}};
+} on_curve[] = {{0, 55},   {139, 60}, {162, 65},  {184, 70},
+                {207, 75}, {229, 80}, {255, 1000}},
+  off_curve[] = {{0, 50},   {139, 55}, {162, 60},  {184, 65},
+                 {207, 70}, {229, 75}, {255, 1000}};
 
 // Catch terminal events
 static void ctlc_handler(int s) { running = 0; }
@@ -38,11 +40,20 @@ static int process_interval(void) {
     }
     // Set the fan speed
     int32_t p;
-    for (int i = 0; i < sizeof(curve) / sizeof(curve[0]); i++)
-        if (temp < curve[i].temp) {
-            fanPower(p = curve[i].level);
-            break;
-        }
+    static int32_t last_temp = 0;
+    if (last_temp > temp) {
+        for (int i = 0; i < sizeof(on_curve) / sizeof(on_curve[0]); i++)
+            if (temp < on_curve[i].temp) {
+                fanPower(p = on_curve[i].level);
+                break;
+            }
+    } else if (last_temp < temp) {
+        for (int i = 0; i < sizeof(off_curve) / sizeof(off_curve[0]); i++)
+            if (temp < off_curve[i].temp) {
+                fanPower(p = off_curve[i].level);
+                break;
+            }
+    }
     // Conditionally log the full status
     static uint32_t lastP = 0;
     // for verbosity >= 1, log fan on/off transitions
