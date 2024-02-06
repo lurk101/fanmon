@@ -4,7 +4,8 @@ After=multi-user.target
 
 
 [Service]
-ExecStart=/usr/local/bin/fanmon -v 1
+ExecStart=/usr/local/bin/fanmon
+ExecReload=/bin/kill -HUP $MAINPID
 Type=simple
 KillMode=process
 

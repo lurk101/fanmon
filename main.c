@@ -9,99 +9,54 @@
 #include "fan.h"
 #include "temp.h"
 
-static volatile uint8_t running = 1;     // Abort (CTL-C) flag
-static int log_level = 0;                // Log verbosity
-
-static struct {
-    uint32_t level, temp;
-} on_curve[] = {{0, 55},   {139, 60}, {162, 65},  {184, 70},
-                {207, 75}, {229, 80}, {255, 1000}},
-  off_curve[] = {{0, 50},   {139, 55}, {162, 60},  {184, 65},
-                 {207, 70}, {229, 75}, {255, 1000}};
+static volatile uint8_t running = 1, reloading = 0; // Abort (CTL-C) flag
 
 // Catch terminal events
 static void ctlc_handler(int s) { running = 0; }
 
-// display help to stdout
-static void help(char* av) {
-    printf("\nUsage:\n\n"
-           "%s [-v loglevel]\n\n"
-           "  -v Set log verbosity. 0 - quiet (default), 1-chatty, 2-debug\n",
-           av);
-}
+static void hup_handler(int s) { reloading = 1; }
+
+static volatile int32_t p, temp;
 
 // Run once per sampling interval process
 static int process_interval(void) {
-    uint32_t temp = getTemp();
+    if (reloading) {
+        sd_notify(0, "RELOADING=1");
+        fprintf(stderr, SD_INFO "Temp %d, Fan at %d\%\n", temp, p * 100 / 256);
+        reloading = 0;
+    }
+    temp = getTemp();
     // Get the temperature and set the fan speed
     if (temp == 0) {
         fprintf(stderr, SD_ALERT "%sError retrieving temperature\n");
         return -1;
     }
     // Set the fan speed
-    int32_t p;
-    static int32_t last_temp = 0;
-    if (last_temp > temp) {
-        for (int i = 0; i < sizeof(on_curve) / sizeof(on_curve[0]); i++)
-            if (temp < on_curve[i].temp) {
-                fanPower(p = on_curve[i].level);
-                break;
-            }
-    } else if (last_temp < temp) {
-        for (int i = 0; i < sizeof(off_curve) / sizeof(off_curve[0]); i++)
-            if (temp < off_curve[i].temp) {
-                fanPower(p = off_curve[i].level);
-                break;
-            }
-    }
-    // Conditionally log the full status
-    static uint32_t lastP = 0;
-    // for verbosity >= 1, log fan on/off transitions
-    if (log_level > 0 && lastP != p) {
-        fprintf(stderr, SD_INFO "Fan at %d\%\n", p * 100 / 256);
-        lastP = p;
-    }
-    // for verbosity > 1, log die temp and fan rpm at every interval
-    if (log_level > 1)
-        fprintf(stderr, SD_INFO "FAN %u% TEMP %u\n", p * 100 / 256, temp);
+    p = (((float)temp - 40) / 30.0) * 256;
+    if (p > 255)
+        p = 255;
+    else if (p < 0)
+        p = 0;
+    fanPower(p);
     return 0;
 }
 
 int main(int ac, char* av[]) {
-    const uint32_t poll_interval = 2;
+    const uint32_t poll_interval = 3;
 
-    // Parse parameters
-    int opt;
-    while ((opt = getopt(ac, av, "v:l:m:p:h")) != -1) {
-        switch (opt) {
-        case 'v':
-            log_level = atoi(optarg);
-            break;
-        case 'h':
-            help(av[0]);
-            exit(0);
-        case ':':
-            fprintf(stderr, SD_ALERT "option needs a value\n");
-            help(av[0]);
-            goto error;
-        case '?':
-            fprintf(stderr, SD_ALERT "unknown option: %c\n", optopt);
-            help(av[0]);
-            goto error;
-        }
-    }
-
-    // Starting
-    fprintf(stderr, SD_INFO "Fan control starting, log level %d\n", log_level);
+    fprintf(stderr, SD_INFO "Fan control starting\n");
 
     // Intercept sigterm
-    struct sigaction sigIntHandler;
+    struct sigaction sigIntHandler, sigIntHandler2;
     sigIntHandler.sa_handler = ctlc_handler;
+    sigIntHandler2.sa_handler = hup_handler;
     sigemptyset(&sigIntHandler.sa_mask);
+    sigemptyset(&sigIntHandler2.sa_mask);
     sigIntHandler.sa_flags = 0;
+    sigIntHandler2.sa_flags = 0;
 
     sigaction(SIGINT, &sigIntHandler, NULL);
-    sigaction(SIGHUP, &sigIntHandler, NULL);
+    sigaction(SIGHUP, &sigIntHandler2, NULL);
     sigaction(SIGSTOP, &sigIntHandler, NULL);
     sigaction(SIGTERM, &sigIntHandler, NULL);
     sigaction(SIGKILL, &sigIntHandler, NULL);
@@ -118,13 +73,14 @@ int main(int ac, char* av[]) {
         errno = EPERM;
         goto error;
     }
-
+    sd_notify(0, "READY=1");
     // Poll forever
     for (; running;) {
         if (process_interval())
             goto error;
         sleep(poll_interval);
     }
+    sd_notify(0, "STOPPING=1");
 
     // Time to exit...
     fanClose();
@@ -134,6 +90,7 @@ int main(int ac, char* av[]) {
 
 error:
     // Exit with error.
+    sd_notify(0, "STOPPING=1");
     fanClose();
     tempClose();
     fprintf(stderr, SD_ALERT "Stopped with error\n");
