@@ -32,7 +32,7 @@ static int process_interval(void) {
         return -1;
     }
     // Set the fan speed
-    p = (((float)temp - 40) / 30.0) * 256;
+    p = (((float)temp - 50.0) / 20.0) * 256;
     if (p > 255)
         p = 255;
     else if (p < 0)
