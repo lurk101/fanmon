@@ -22,6 +22,7 @@ static volatile int32_t p, temp;
 static int process_interval(void) {
     if (reloading) {
         sd_notify(0, "RELOADING=1");
+        sleep(1);
         fprintf(stderr, SD_INFO "Temp %d, Fan at %d\%\n", temp, p * 100 / 256);
         reloading = 0;
     }
