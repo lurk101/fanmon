@@ -2,9 +2,9 @@ BIN	= fanmon
 CC	= gcc
 STRIP	= strip
 
-#ECHO	=
+ECHO	=
 #OFLAGS	= -g
-ECHO	= @
+#ECHO	= @
 OFLAGS	= -O3 -flto
 CFLAGS	= $(OFLAGS) -Wall -fdata-sections -ffunction-sections
 LDFLAGS	= $(OFLAGS) -Wl,--gc-sections -Wl,-Map,$(BIN).map

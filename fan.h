@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 // Initialize the fan controller
-int fanInit(void);
+int fanInit(int pwm_chip);
 
 // Release the fan controller
 void fanClose(void);

@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 // Set up temperature sensing
-int tempOpen(void);
+int tempOpen(int thermal_zone);
 
 // Tear down temperature sensing
 void tempClose(void);

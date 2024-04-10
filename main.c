@@ -33,7 +33,7 @@ static int process_interval(void) {
         return -1;
     }
     // Set the fan speed
-    p = (((float)temp - 50.0) / 20.0) * 256;
+    p = (((float)temp - 50) / 20.0) * 256;
     if (p > 255)
         p = 255;
     else if (p < 0)
@@ -44,6 +44,8 @@ static int process_interval(void) {
 
 int main(int ac, char* av[]) {
     const uint32_t poll_interval = 3;
+    int thermal_zone = -1, pwm_chip = -1;
+    int c;
 
     fprintf(stderr, SD_INFO "Fan control starting\n");
 
@@ -62,14 +64,35 @@ int main(int ac, char* av[]) {
     sigaction(SIGTERM, &sigIntHandler, NULL);
     sigaction(SIGKILL, &sigIntHandler, NULL);
 
+    opterr = 0;
+    while ((c = getopt(ac, av, "t:p:")) != -1) switch (c) {
+        case 't':
+            thermal_zone = atoi(optarg);
+            break;
+        case 'p':
+            pwm_chip = atoi(optarg);
+            break;
+            if (optopt == 'c')
+                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
+            else
+                fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+            goto error;
+        }
+    if (pwm_chip == -1 || thermal_zone == -1) {
+        fprintf(stderr,
+                "thermal zone parameter (-t) and pwm chip (-p) numbers must be specified\n");
+        goto error;
+    }
+    fprintf(stderr, "Using thermal zone %d, pwm chip %d\n", thermal_zone, pwm_chip);
+
     // Initialize the library
-    if (fanInit() < 0) {
+    if (fanInit(pwm_chip) < 0) {
         fprintf(stderr, SD_ERR "Must run as ROOT\n");
         errno = EPERM;
         goto error;
     }
 
-    if (tempOpen() < 0) {
+    if (tempOpen(thermal_zone) < 0) {
         fprintf(stderr, SD_ALERT "Can't init temperature sensor\n");
         errno = EPERM;
         goto error;
