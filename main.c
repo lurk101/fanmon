@@ -10,13 +10,13 @@
 #include "temp.h"
 
 static volatile uint8_t running = 1, reloading = 0; // Abort (CTL-C) flag
+static volatile int32_t p, temp;
+static int throttle_temp = 80;
 
 // Catch terminal events
 static void ctlc_handler(int s) { running = 0; }
 
 static void hup_handler(int s) { reloading = 1; }
-
-static volatile int32_t p, temp;
 
 // Run once per sampling interval process
 static int process_interval(void) {
@@ -29,22 +29,29 @@ static int process_interval(void) {
     temp = getTemp();
     // Get the temperature and set the fan speed
     if (temp == 0) {
-        fprintf(stderr, SD_ALERT "%sError retrieving temperature\n");
+        fprintf(stderr, SD_ERR "%sError retrieving temperature\n");
         return -1;
     }
     // Set the fan speed
-    p = (((float)temp - 50) / 20.0) * 256;
-    if (p > 255)
-        p = 255;
-    else if (p < 0)
+    const int start_temp = 50;
+    p = (((float)temp - start_temp) / ((throttle_temp - 10) - start_temp)) * 256;
+    if (p < 0)
         p = 0;
+    else if (p > 255)
+        p = 255;
     fanPower(p);
     return 0;
 }
 
+static void help(void) {
+    fprintf(stderr, SD_ERR
+            "Usage: fanmon [-t thermal_zone] [-p pwm_chip] [-m throttle_temp]");
+    exit(-1);
+}
+
 int main(int ac, char* av[]) {
     const uint32_t poll_interval = 3;
-    int thermal_zone = -1, pwm_chip = -1;
+    int thermal_zone = 0, pwm_chip = 0;
     int c;
 
     fprintf(stderr, SD_INFO "Fan control starting\n");
@@ -65,25 +72,25 @@ int main(int ac, char* av[]) {
     sigaction(SIGKILL, &sigIntHandler, NULL);
 
     opterr = 0;
-    while ((c = getopt(ac, av, "t:p:")) != -1) switch (c) {
+    while ((c = getopt(ac, av, "t:p:m:")) != -1)
+        switch (c) {
         case 't':
             thermal_zone = atoi(optarg);
             break;
         case 'p':
             pwm_chip = atoi(optarg);
             break;
-            if (optopt == 'c')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            else
-                fprintf(stderr, "Unknown option `-%c'.\n", optopt);
-            goto error;
+        case 'm':
+            throttle_temp = atoi(optarg);
+            break;
+        case '?':
+            fprintf(stderr, SD_ERR "Unknown option `-%c'.\n", optopt);
+        default:
+            help();
         }
-    if (pwm_chip == -1 || thermal_zone == -1) {
-        fprintf(stderr,
-                "thermal zone parameter (-t) and pwm chip (-p) numbers must be specified\n");
-        goto error;
-    }
-    fprintf(stderr, "Using thermal zone %d, pwm chip %d\n", thermal_zone, pwm_chip);
+    fprintf(stderr,
+            SD_INFO "Using thermal zone %d, pwm chip %d, throttle temp %dC\n",
+            thermal_zone, pwm_chip, throttle_temp);
 
     // Initialize the library
     if (fanInit(pwm_chip) < 0) {
@@ -93,7 +100,7 @@ int main(int ac, char* av[]) {
     }
 
     if (tempOpen(thermal_zone) < 0) {
-        fprintf(stderr, SD_ALERT "Can't init temperature sensor\n");
+        fprintf(stderr, SD_ERR "Can't init temperature sensor\n");
         errno = EPERM;
         goto error;
     }
@@ -117,6 +124,6 @@ error:
     sd_notify(0, "STOPPING=1");
     fanClose();
     tempClose();
-    fprintf(stderr, SD_ALERT "Stopped with error\n");
+    fprintf(stderr, SD_ERR "Stopped with error\n");
     return -1;
 }

@@ -5,11 +5,11 @@ After=multi-user.target
 
 [Service]
 # pi4b
-ExecStart=/usr/local/bin/fanmon -t 0 -p 0
+ExecStart=/usr/local/bin/fanmon
 #opi5
-#ExecStart=/usr/local/bin/fanmon -t 0 -p 2
+#ExecStart=/usr/local/bin/fanmon -p 2
 #rock5b
-#ExecStart=/usr/local/bin/fanmon -t 0 -p 1
+#ExecStart=/usr/local/bin/fanmon -p 1
 
 ExecReload=/bin/kill -HUP $MAINPID
 Type=simple
