@@ -12,6 +12,7 @@
 static volatile uint8_t running = 1, reloading = 0; // Abort (CTL-C) flag
 static volatile int32_t p, temp;
 static int throttle_temp = 80;
+static int start_temp = 50;
 
 // Catch terminal events
 static void ctlc_handler(int s) { running = 0; }
@@ -33,8 +34,8 @@ static int process_interval(void) {
         return -1;
     }
     // Set the fan speed
-    const int start_temp = 50;
-    p = (((float)temp - start_temp) / ((throttle_temp - 10) - start_temp)) * 256;
+    p = (((float)temp - start_temp) / ((throttle_temp - 10) - start_temp)) *
+        256;
     if (p < 0)
         p = 0;
     else if (p > 255)
@@ -44,8 +45,8 @@ static int process_interval(void) {
 }
 
 static void help(void) {
-    fprintf(stderr, SD_ERR
-            "Usage: fanmon [-t thermal_zone] [-p pwm_chip] [-m throttle_temp]");
+    fprintf(stderr, SD_ERR "Usage: fanmon [-t thermal_zone] [-p pwm_chip] [-m "
+                           "throttle_temp] [-s start_temp]\n");
     exit(-1);
 }
 
@@ -83,14 +84,18 @@ int main(int ac, char* av[]) {
         case 'm':
             throttle_temp = atoi(optarg);
             break;
+        case 's':
+            start_temp = atoi(optarg);
+            break;
         case '?':
             fprintf(stderr, SD_ERR "Unknown option `-%c'.\n", optopt);
         default:
             help();
         }
     fprintf(stderr,
-            SD_INFO "Using thermal zone %d, pwm chip %d, throttle temp %dC\n",
-            thermal_zone, pwm_chip, throttle_temp);
+            SD_INFO "Using thermal zone %d, pwm chip %d, start temp %dC, "
+                    "throttle temp %dC\n",
+            thermal_zone, pwm_chip, start_temp, throttle_temp);
 
     // Initialize the library
     if (fanInit(pwm_chip) < 0) {

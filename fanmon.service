@@ -5,7 +5,7 @@ After=multi-user.target
 
 [Service]
 # pi4b
-ExecStart=/usr/local/bin/fanmon
+ExecStart=/usr/local/bin/fanmon -s 55
 #opi5
 #ExecStart=/usr/local/bin/fanmon -p 2
 #rock5b
