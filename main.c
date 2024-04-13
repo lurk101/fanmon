@@ -73,7 +73,7 @@ int main(int ac, char* av[]) {
     sigaction(SIGKILL, &sigIntHandler, NULL);
 
     opterr = 0;
-    while ((c = getopt(ac, av, "t:p:m:")) != -1)
+    while ((c = getopt(ac, av, "t:p:m:s:")) != -1)
         switch (c) {
         case 't':
             thermal_zone = atoi(optarg);
@@ -92,10 +92,10 @@ int main(int ac, char* av[]) {
         default:
             help();
         }
-    fprintf(stderr,
-            SD_INFO "Using thermal zone %d, pwm chip %d, start temp %dC, "
-                    "throttle temp %dC\n",
-            thermal_zone, pwm_chip, start_temp, throttle_temp);
+    fprintf(stderr, SD_INFO "Using thermal zone %d, pwm chip %d\n",
+            thermal_zone, pwm_chip);
+    fprintf(stderr, SD_INFO "Using start temp %dC, throttle temp %dC\n",
+            start_temp, throttle_temp);
 
     // Initialize the library
     if (fanInit(pwm_chip) < 0) {
