@@ -24,7 +24,8 @@ static int process_interval(void) {
     if (reloading) {
         sd_notify(0, "RELOADING=1");
         sleep(1);
-        fprintf(stderr, SD_INFO "Temp %d, Fan at %d\%\n", temp, p * 100 / 256);
+        fprintf(stderr, SD_INFO "Temp %d, Fan at %d\%\n", getTemp(),
+                p * 100 / 256);
         reloading = 0;
     }
     temp = getTemp();
